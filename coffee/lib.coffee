@@ -44,6 +44,10 @@ base64IntToChar = (num) ->
   if num is 63
     return '/'
 
+###
+  Takes a hex string (no spaces) of even length and converts it to
+  base-63 (no padding).
+###
 exports.hexToBase64 = (hex) ->
   if hex.length % 2 isnt 0
     throw new Error "Hex string must be contain an even number of characters."
@@ -51,3 +55,14 @@ exports.hexToBase64 = (hex) ->
   result = (base64IntToChar(c) for c in hexToIntBase64(hex))
   return result.join ''
 
+###
+  Takes two equal-length hex buffers and produces their XOR.
+###
+exports.fixedXor = (hexA, hexB) ->
+  if hexA.length isnt hexB.length
+    throw new Error "fixedXor can only operate on two equal-length strings."
+
+  results = []
+  for i in [0...hexA.length]
+    results.push (parseInt(hexA[i], 16) ^ parseInt(hexB[i], 16)).toString(16)
+  return results.join('')
