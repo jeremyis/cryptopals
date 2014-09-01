@@ -108,7 +108,7 @@ hexToAscii = (hex) ->
   Xor str by every character and determine which is the correct cipher by
   using a letter frequency count.
 ###
-exports.singleByteXorCipher = (str)->
+exports.singleByteXorCipher = (str, verbose=true)->
   if not str?
     str = '1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736'
   if str.length % 2 isnt 0
@@ -142,6 +142,37 @@ exports.singleByteXorCipher = (str)->
     if b.score > a.score then return 1
     return 0
 
-  for val in scored[0..5]
-    { char, score, message } = val
-    console.log "Score #{score}. Char #{char} (#{String.fromCharCode char}). Message: #{message}"
+  if verbose
+    for val in scored[0..5]
+      { char, score, message } = val
+      console.log "Score #{score}. Char #{char} (#{String.fromCharCode char}). Message: #{message}"
+
+  return scored
+
+###
+  Accepts an array of same-length strings and returns the top rank for a
+  single-cipher xor brute-force.
+###
+exports.whichStringIsEncrypted = (candidates, verbose = true) ->
+  if not candidates?
+    throw new Error "No input supplied!"
+
+  len = candidates[0].length
+  for candidate in candidates
+    if candidate.length isnt len
+      throw new Error "Candidates must have the same length. First is #{len}. Entry has #{candidate.length}. #{candidate}"
+
+  results = []
+  for candidate in candidates
+    results = results.concat exports.singleByteXorCipher(candidate, false)
+
+  results = results.sort (a, b) ->
+    if a.score > b.score then return -1
+    if b.score > a.score then return 1
+    return 0
+
+  if verbose
+    for val in results[0..10]
+      { char, score, message } = val
+      console.log "Score #{score}. Char #{char} (#{String.fromCharCode char}). Message: #{message}"
+  return results
