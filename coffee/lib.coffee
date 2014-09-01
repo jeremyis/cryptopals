@@ -104,6 +104,12 @@ hexToAscii = (hex) ->
     i += 2
   return result.join ''
 
+asciiToHex = (ascii) ->
+  result = []
+  for c in ascii
+    result.push c.charCodeAt(0).toString(16)
+  return result.join ''
+
 ###
   Xor str by every character and determine which is the correct cipher by
   using a letter frequency count.
@@ -176,3 +182,21 @@ exports.whichStringIsEncrypted = (candidates, verbose = true) ->
       { char, score, message } = val
       console.log "Score #{score}. Char #{char} (#{String.fromCharCode char}). Message: #{message}"
   return results
+
+exports.repeatingKeyXor = (plaintext, key) ->
+  hex = asciiToHex plaintext
+  keyHexNums = (c.charCodeAt(0) for c in key)
+
+  code = []
+  keyIndex = 0
+  i = 0
+  while i < hex.length
+    c = hex[i] + hex[i+1]
+    k = keyHexNums[ keyIndex % key.length ]
+    #console.log "#{k} ^ #{parseInt c, 16} (#{c})"
+    val = (parseInt(c, 16) ^ k).toString(16)
+    if val.length is 1 then val = "0#{val}"
+    code.push val
+    keyIndex++
+    i += 2
+  return code.join ''
