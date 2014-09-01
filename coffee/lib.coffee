@@ -46,7 +46,7 @@ base64IntToChar = (num) ->
 
 ###
   Takes a hex string (no spaces) of even length and converts it to
-  base-63 (no padding).
+  base-64 (no padding).
 ###
 exports.hexToBase64 = (hex) ->
   if hex.length % 2 isnt 0
@@ -66,3 +66,82 @@ exports.fixedXor = (hexA, hexB) ->
   for i in [0...hexA.length]
     results.push (parseInt(hexA[i], 16) ^ parseInt(hexB[i], 16)).toString(16)
   return results.join('')
+
+
+SIG_CHARS = "ETAOIN SHRDLU"
+SIG_CHARS += SIG_CHARS.toLowerCase().split(' ').join('')
+temp = {}
+for char in SIG_CHARS
+  temp[ char.charCodeAt(0) ] = char
+# Map of ASCII char codes (int) we're scoring for to value
+SIG_CHARS = temp
+scoreChar = (num) ->
+  if SIG_CHARS[num] then return 1
+  return 0
+
+###
+  Gives text a score between [0, 100]. A higher score means the message is
+  more likely English text.
+###
+scoreText = (text) ->
+  score = 0
+  i = 0
+  while i < text.length
+    char = text[i] + text[i+1]
+    score += scoreChar parseInt(char, 16)
+    i += 2
+  #console.log "score: #{score} / #{text.length}"
+  score = Math.floor(100 * score / text.length / 2.0)
+  #console.log "score now: #{score}"
+  return score
+
+hexToAscii = (hex) ->
+  result = []
+  i = 0
+  while i < hex.length
+    char = hex[i] + hex[i+1]
+    result.push String.fromCharCode parseInt(char, 16)
+    i += 2
+  return result.join ''
+
+###
+  Xor str by every character and determine which is the correct cipher by
+  using a letter frequency count.
+###
+exports.singleByteXorCipher = (str)->
+  if not str?
+    str = '1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736'
+  if str.length % 2 isnt 0
+    throw new Error "Str is supposed to represent text so should be a multiple of 2."
+
+  # Go through 1 -> 2^8 - 1, and xor str
+  # Count number of alphanumeric chars (in ascii). Sort by that. Print out
+  # top 3.
+  # Maybe there are a lot of letters, if so, try something smarter with letter freq.
+  # http://en.wikipedia.org/wiki/Letter_frequency
+
+  # Is it xored against literally a single character or a single character repeated?
+  scored = []
+  for i in [0..2**8-1]
+    hex = i.toString(16)
+    if hex.length is 1 then hex = "0#{hex}"
+    cipher = Array(str.length/2 + 1).join hex
+    #console.log cipher
+    #console.log "#{cipher.length} #{str.length}"
+
+    message = exports.fixedXor(str, cipher)
+    score = scoreText(message)
+    scored.push {
+      char: i
+      score
+      message: hexToAscii message
+    }
+
+  scored = scored.sort (a, b) ->
+    if a.score > b.score then return -1
+    if b.score > a.score then return 1
+    return 0
+
+  for val in scored[0..5]
+    { char, score, message } = val
+    console.log "Score #{score}. Char #{char} (#{String.fromCharCode char}). Message: #{message}"
