@@ -1,3 +1,6 @@
+# TODO: it's confusing dealing with ASCII, hex, base64, decimal representation,
+# etc. Really, I should just make a "Buffer" class that handles all these
+# interpretations and the respective operations.
 hexToInt = (x) -> parseInt x, 16
 
 TOP_HALF_MASK = 12
@@ -95,7 +98,7 @@ scoreText = (text) ->
   #console.log "score now: #{score}"
   return score
 
-exports.hexToAscii = (hex) ->
+exports.hexToAscii = hexToAscii = (hex) ->
   result = []
   i = 0
   while i < hex.length
@@ -140,7 +143,7 @@ exports.singleByteXorCipher = (str, verbose=true)->
     scored.push {
       char: i
       score
-      message: exports.hexToAscii message
+      message: hexToAscii message
     }
 
   scored = scored.sort (a, b) ->
@@ -203,3 +206,26 @@ exports.repeatingKeyXor = (hex, key) ->
     keyIndex++
     i += 2
   return code.join ''
+
+exports.hammingDistanceAscii = (asciiA, asciiB) ->
+  a = asciiToHex asciiA
+  b = asciiToHex asciiB
+  hammingDistance a, b
+
+hammingDistance = (hexA, hexB) ->
+  if hexA.length isnt hexB.length
+    throw new Error "Hamming distance between two unequal strings #{hexA.length} and #{hexB.length}"
+
+  dist = 0
+  i = 0
+  while i < hexA.length
+    a = (hexA[i] + hexA[i+1])
+    b = (hexB[i] + hexB[i+1])
+
+    diffs = parseInt(a, 16) ^ parseInt(b, 16)
+    while diffs > 0
+      dist += diffs & 1
+      diffs = diffs >>> 1
+    #console.log "#{i/2 + 1} char: #{parseInt(a, 16)} (#{parseInt(a, 16).toString(2)}) ^ #{parseInt(b, 16)} (#{parseInt(b, 16).toString(2)}). #{dist}"
+    i += 2
+  return dist
