@@ -104,10 +104,11 @@ hexToAscii = (hex) ->
     i += 2
   return result.join ''
 
+padHex = (c)-> if c.length is 1 then "0#{c}" else c
 asciiToHex = (ascii) ->
   result = []
   for c in ascii
-    result.push c.charCodeAt(0).toString(16)
+    result.push padHex c.charCodeAt(0).toString(16)
   return result.join ''
 
 ###
@@ -129,8 +130,7 @@ exports.singleByteXorCipher = (str, verbose=true)->
   # Is it xored against literally a single character or a single character repeated?
   scored = []
   for i in [0..2**8-1]
-    hex = i.toString(16)
-    if hex.length is 1 then hex = "0#{hex}"
+    hex = padHex i.toString(16)
     cipher = Array(str.length/2 + 1).join hex
     #console.log cipher
     #console.log "#{cipher.length} #{str.length}"
@@ -194,8 +194,8 @@ exports.repeatingKeyXor = (plaintext, key) ->
     c = hex[i] + hex[i+1]
     k = keyHexNums[ keyIndex % key.length ]
     #console.log "#{k} ^ #{parseInt c, 16} (#{c})"
-    val = (parseInt(c, 16) ^ k).toString(16)
-    if val.length is 1 then val = "0#{val}"
+    val = padHex (parseInt(c, 16) ^ k).toString(16)
+    #console.log "#{i}) #{String.fromCharCode parseInt(c, 16)} ^ #{String.fromCharCode k} = #{val}"
     code.push val
     keyIndex++
     i += 2
