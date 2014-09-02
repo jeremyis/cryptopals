@@ -95,7 +95,7 @@ scoreText = (text) ->
   #console.log "score now: #{score}"
   return score
 
-hexToAscii = (hex) ->
+exports.hexToAscii = (hex) ->
   result = []
   i = 0
   while i < hex.length
@@ -140,7 +140,7 @@ exports.singleByteXorCipher = (str, verbose=true)->
     scored.push {
       char: i
       score
-      message: hexToAscii message
+      message: exports.hexToAscii message
     }
 
   scored = scored.sort (a, b) ->
@@ -183,8 +183,11 @@ exports.whichStringIsEncrypted = (candidates, verbose = true) ->
       console.log "Score #{score}. Char #{char} (#{String.fromCharCode char}). Message: #{message}"
   return results
 
-exports.repeatingKeyXor = (plaintext, key) ->
+exports.repeatingKeyXorAscii = (plaintext, key) ->
   hex = asciiToHex plaintext
+  exports.repeatingKeyXor hex, key
+
+exports.repeatingKeyXor = (hex, key) ->
   keyHexNums = (c.charCodeAt(0) for c in key)
 
   code = []
