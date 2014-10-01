@@ -38,10 +38,8 @@ test = ->
 # Read in file and base-64 decode it.
 code = fs.readFileSync './6.txt', 'utf-8'
 hexCiphertext = new Buffer(code, 'base64').toString('hex')
+console.log "CipherText length: #{hexCiphertext.length}"
 console.log lib.breakRepeatingKeyXor hexCiphertext
-
-# Now transpose the blocks: make a block that is the first byte of every block,
-# and a block that is the second byte of every block, and so on.
 
 # Solve each block as if it was single-character XOR. You already have code to
 # do this.

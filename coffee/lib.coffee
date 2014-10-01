@@ -123,7 +123,7 @@ exports.singleByteXorCipher = (str, verbose=true)->
   if not str?
     str = '1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736'
   if str.length % 2 isnt 0
-    throw new Error "Str is supposed to represent text so should be a multiple of 2."
+    throw new Error "Str is supposed to represent text so should be a multiple of 2. Is: #{str.length}"
 
   # Go through 1 -> 2^8 - 1, and xor str
   # Count number of alphanumeric chars (in ascii). Sort by that. Print out
@@ -242,19 +242,20 @@ class BreakRepeatingKeyXor
   getPossibleKeyLengths = (hexCiphertext) ->
     lenScores = {}
     for KEYSIZE in [4..80] when KEYSIZE % 2 is 0
-      [ a, b ] = [ hexCiphertext[0...KEYSIZE], hexCode[KEYSIZE...2*KEYSIZE] ]
+      [ a, b ] = [ hexCiphertext[0...KEYSIZE], hexCiphertext[KEYSIZE...2*KEYSIZE] ]
       lenScores[ hammingDistance(a, b) / KEYSIZE ] = KEYSIZE
-    console.log lenScores
     (lenScores[i] / 2 for i in Object.keys(lenScores).sort()[0..2])
 
   padSoDivisble = (dividend, divisor, char='0') ->
     remainder = dividend.length % divisor
-    console.log remainder
     return dividend if remainder is 0
     "#{dividend}#{Array(divisor - remainder + 1).join char}"
 
-  # Now that you probably know the KEYSIZE: break the ciphertext into blocks of KEYSIZE length.
-  getBlocks = (hexCiphertext, size) ->
+  # Now that you probably know the KEYSIZE: break the ciphertext into blocks
+  # of KEYSIZE length.
+  # Now transpose the blocks: make a block that is the first byte of every block,
+  # and a block that is the second byte of every block, and so on.
+  getTransposedBlocks = (hexCiphertext, size) ->
     blocks = []
     hexCiphertext = padSoDivisble hexCiphertext, size
     for i of hexCiphertext
@@ -263,9 +264,32 @@ class BreakRepeatingKeyXor
         blocks.push []
       blocks[ group ].push( hexCiphertext[i] )
     return blocks
+
+
   @run: (hexCiphertext) ->
-    #getPossibleKeyLengths(hexCiphertext)
-    console.log getBlocks hexCiphertext[0..21], 9
+    possibleKeyLengths = getPossibleKeyLengths(hexCiphertext)
+    console.log "Possible Key Lengths: #{possibleKeyLengths}"
+
+    keys = ('' for k in possibleKeyLengths)
+    scores = (0 for k in possibleKeyLengths)
+    for keyLength, keyId in possibleKeyLengths
+      cipherKey = -1
+      maxScore = -1
+      for block, i in getTransposedBlocks hexCiphertext, keyLength
+        console.log "############################################"
+        # For a given keyLength, what character yields the best histogram?
+        blockString = padSoDivisble block, 2
+        console.log "KeyLength: #{keyLength}. Block #{i}"
+        [ {char, score}, ...] = exports.singleByteXorCipher(blockString, false)
+        console.log "KeyLength: #{keyLength}. Block #{i}. Char: #{char}. Score: #{maxScore}"
+        keys[ keyId ] = String.fromCharCode(char) + keys[keyId]
+        scores[ keyId ] += score
+
+    console.log scores
+    console.log keys
+    for key in keys
+      console.log "################### For #{key}"
+      console.log hexToAscii exports.repeatingKeyXor hexCiphertext, key
 
 
 exports.breakRepeatingKeyXor = BreakRepeatingKeyXor.run
