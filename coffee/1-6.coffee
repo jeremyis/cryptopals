@@ -1,4 +1,7 @@
+fs = require 'fs'
+
 lib = require './lib'
+
 ###
   Break repeating-key XOR
 ###
@@ -30,4 +33,19 @@ test = ->
   else
     console.log "ERROR! #{testFailures} tests failed."
 
-test()
+#test()
+
+# Read in file and base-64 decode it.
+code = fs.readFileSync './6.txt', 'utf-8'
+hexCiphertext = new Buffer(code, 'base64').toString('hex')
+console.log lib.breakRepeatingKeyXor hexCiphertext
+
+# Now transpose the blocks: make a block that is the first byte of every block,
+# and a block that is the second byte of every block, and so on.
+
+# Solve each block as if it was single-character XOR. You already have code to
+# do this.
+
+# For each block, the single-byte XOR key that produces the best looking
+# histogram is the repeating-key XOR key byte for that block. Put them
+# together and you have the key.

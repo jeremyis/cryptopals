@@ -1,6 +1,7 @@
 # TODO: it's confusing dealing with ASCII, hex, base64, decimal representation,
 # etc. Really, I should just make a "Buffer" class that handles all these
 # interpretations and the respective operations.
+# Note: this is EXACTLY what the Node.JS Buffer class does. D'oh.
 hexToInt = (x) -> parseInt x, 16
 
 TOP_HALF_MASK = 12
@@ -229,3 +230,42 @@ hammingDistance = (hexA, hexB) ->
     #console.log "#{i/2 + 1} char: #{parseInt(a, 16)} (#{parseInt(a, 16).toString(2)}) ^ #{parseInt(b, 16)} (#{parseInt(b, 16).toString(2)}). #{dist}"
     i += 2
   return dist
+
+class BreakRepeatingKeyXor
+  # For each KEYSIZE, take the first KEYSIZE worth of bytes, and the second
+  # KEYSIZE worth of bytes, and find the edit distance between them.
+  # Normalize this result by dividing by KEYSIZE.
+  #
+  # The KEYSIZE with the smallest normalized edit distance is probably the key.
+  # You could proceed perhaps with the smallest 2-3 KEYSIZE values. Or take 4 KEYSIZE blocks instead of 2 and average the distances.
+  # Returns length in bytes.
+  getPossibleKeyLengths = (hexCiphertext) ->
+    lenScores = {}
+    for KEYSIZE in [4..80] when KEYSIZE % 2 is 0
+      [ a, b ] = [ hexCiphertext[0...KEYSIZE], hexCode[KEYSIZE...2*KEYSIZE] ]
+      lenScores[ hammingDistance(a, b) / KEYSIZE ] = KEYSIZE
+    console.log lenScores
+    (lenScores[i] / 2 for i in Object.keys(lenScores).sort()[0..2])
+
+  padSoDivisble = (dividend, divisor, char='0') ->
+    remainder = dividend.length % divisor
+    console.log remainder
+    return dividend if remainder is 0
+    "#{dividend}#{Array(divisor - remainder + 1).join char}"
+
+  # Now that you probably know the KEYSIZE: break the ciphertext into blocks of KEYSIZE length.
+  getBlocks = (hexCiphertext, size) ->
+    blocks = []
+    hexCiphertext = padSoDivisble hexCiphertext, size
+    for i of hexCiphertext
+      group = i % size
+      if blocks.length - 1 < group
+        blocks.push []
+      blocks[ group ].push( hexCiphertext[i] )
+    return blocks
+  @run: (hexCiphertext) ->
+    #getPossibleKeyLengths(hexCiphertext)
+    console.log getBlocks hexCiphertext[0..21], 9
+
+
+exports.breakRepeatingKeyXor = BreakRepeatingKeyXor.run
