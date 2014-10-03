@@ -237,14 +237,43 @@ class BreakRepeatingKeyXor
   # Normalize this result by dividing by KEYSIZE.
   #
   # The KEYSIZE with the smallest normalized edit distance is probably the key.
-  # You could proceed perhaps with the smallest 2-3 KEYSIZE values. Or take 4 KEYSIZE blocks instead of 2 and average the distances.
-  # Returns length in bytes.
+  # You could proceed perhaps with the smallest 2-3 KEYSIZE values.
   getPossibleKeyLengths = (hexCiphertext) ->
     lenScores = {}
+    console.log "ciphertext: #{hexCiphertext.length}"
+    # KEYSIZE is in NIBBLES (half bytes)
     for KEYSIZE in [4..80] when KEYSIZE % 2 is 0
       [ a, b ] = [ hexCiphertext[0...KEYSIZE], hexCiphertext[KEYSIZE...2*KEYSIZE] ]
-      lenScores[ hammingDistance(a, b) / KEYSIZE ] = KEYSIZE
-    (lenScores[i] / 2 for i in Object.keys(lenScores).sort()[0..2])
+      lenScores[ hammingDistance(a, b) / 2*KEYSIZE ] = KEYSIZE / 2
+    console.log lenScores
+    (lenScores[i] for i in Object.keys(lenScores).sort())
+
+  # Or take 4 KEYSIZE blocks instead of 2 and average the distances.
+  # Returns length in bytes.
+  getKeyLength = (hexCiphertext) ->
+    lenScores = {}
+    console.log "ciphertext: #{hexCiphertext.length}"
+    # KEYSIZE is in NIBBLES (half bytes)
+    for KEYSIZE in [4..80] when KEYSIZE % 2 is 0
+
+      # Take the a bunch of KEYSIZE blocks.
+      blocks = []
+      for i in [1..12]
+        blocks.push hexCiphertext[i*KEYSIZE...(i+1)*KEYSIZE]
+
+      # Average their hamming distance.
+      total = 0
+      count = 0
+      for outer, i in blocks
+        for j in [i + 1...blocks.length]
+          total += hammingDistance(outer, blocks[j])
+          count++
+      average = total / count
+
+      lenScores[ average / KEYSIZE / 2 ] = KEYSIZE / 2
+    console.log lenScores
+    (lenScores[i] for i in Object.keys(lenScores).sort())[0]
+
 
   padSoDivisble = (dividend, divisor, char='0') ->
     remainder = dividend.length % divisor
@@ -255,34 +284,49 @@ class BreakRepeatingKeyXor
   # of KEYSIZE length.
   # Now transpose the blocks: make a block that is the first byte of every block,
   # and a block that is the second byte of every block, and so on.
+  #
+  # e.g.:
+  # 1d421f4d0b0f021f4f134e3c1a69651f491c0e4e for KEYSIZE = 5
+  # or
+  # 1d 42 1f 4d 0b
+  # 0f 02 1f 4f 13
+  # 4e 3c 1a 69 65
+  # 1f 49 1c 0e 4e
+  # yields =>
+  # [ [ '1d', '0f', '4e', '1f' ],
+  #   [ '42', '02', '3c', '49' ],
+  #   [ '1f', '1f', '1a', '1c' ],
+  #   [ '4d', '4f', '69', '0e' ],
+  #   [ '0b', '13', '65', '4e' ] ]
+  ##
   getTransposedBlocks = (hexCiphertext, size) ->
     blocks = []
-    hexCiphertext = padSoDivisble hexCiphertext, size
-    for i of hexCiphertext
-      group = i % size
+    #hexCiphertext = padSoDivisble hexCiphertext, size*2
+    i = 0
+    while i < hexCiphertext.length
+      group = (i / 2) % size
       if blocks.length - 1 < group
         blocks.push []
-      blocks[ group ].push( hexCiphertext[i] )
+      blocks[ group ].push( hexCiphertext[i] + hexCiphertext[i+1] )
+      i += 2
     return blocks
 
-
   @run: (hexCiphertext) ->
-    possibleKeyLengths = getPossibleKeyLengths(hexCiphertext)
+    #possibleKeyLengths = getPossibleKeyLengths(hexCiphertext)
+    possibleKeyLengths = [ getKeyLength(hexCiphertext) ]
     console.log "Possible Key Lengths: #{possibleKeyLengths}"
-
     keys = ('' for k in possibleKeyLengths)
     scores = (0 for k in possibleKeyLengths)
     for keyLength, keyId in possibleKeyLengths
-      cipherKey = -1
-      maxScore = -1
       for block, i in getTransposedBlocks hexCiphertext, keyLength
         console.log "############################################"
         # For a given keyLength, what character yields the best histogram?
-        blockString = padSoDivisble block, 2
+        blockString = block.join ''
+        #console.log "block: #{block} | #{block.length}"
         console.log "KeyLength: #{keyLength}. Block #{i}"
         [ {char, score}, ...] = exports.singleByteXorCipher(blockString, false)
-        console.log "KeyLength: #{keyLength}. Block #{i}. Char: #{char}. Score: #{maxScore}"
-        keys[ keyId ] = String.fromCharCode(char) + keys[keyId]
+        console.log "KeyLength: #{keyLength}. Block #{i}. Char: #{char}. Score: #{score}"
+        keys[ keyId ] = keys[keyId] + String.fromCharCode(char)
         scores[ keyId ] += score
 
     console.log scores
@@ -290,6 +334,6 @@ class BreakRepeatingKeyXor
     for key in keys
       console.log "################### For #{key}"
       console.log hexToAscii exports.repeatingKeyXor hexCiphertext, key
-
+    return keys
 
 exports.breakRepeatingKeyXor = BreakRepeatingKeyXor.run
