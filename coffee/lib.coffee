@@ -1,3 +1,5 @@
+crypto = require 'crypto'
+fs = require 'fs'
 # TODO: it's confusing dealing with ASCII, hex, base64, decimal representation,
 # etc. Really, I should just make a "Buffer" class that handles all these
 # interpretations and the respective operations.
@@ -337,3 +339,26 @@ class BreakRepeatingKeyXor
     return keys
 
 exports.breakRepeatingKeyXor = BreakRepeatingKeyXor.run
+
+exports.readFile = (file, format='base64') ->
+  new Buffer(fs.readFileSync(file, 'utf8').split("\n").join(''), format)
+
+exports.decryptAes128Ecb = (ciphertext, key) ->
+  ecbDecrypt('aes128', 128, ciphertext, key)
+
+ecbDecrypt = (cipher, blockSize, buf, key) ->
+  if buf.length * 8 % blockSize isnt 0
+    throw new Error("Buffer (#{buf.length*8}) bits) must be divisible by block size (#{blockSize} bits)")
+
+  i = 0
+  decrypted = []
+  blockSizeBytes = blockSize / 8
+  while i*blockSizeBytes < buf.length
+    data = buf.slice(i * blockSizeBytes, (i+1) * blockSizeBytes)
+
+    iv = new Buffer( (0 for x in [0...16]) )
+    decipher = crypto.createDecipheriv(cipher, key, iv)
+    decipher.setAutoPadding(false) # D'oh this was needed
+    decrypted.push Buffer.concat([ decipher.update(data), decipher.final() ])
+    i++
+  Buffer.concat decrypted
