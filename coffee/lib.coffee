@@ -233,6 +233,19 @@ hammingDistance = (hexA, hexB) ->
     i += 2
   return dist
 
+
+padSoDivisble = (dividend, divisor, char=0) ->
+  remainder = dividend.length % divisor
+  return dividend if remainder is 0
+
+  #console.log "appending: #{divisor}, #{remainder}, #{Array(divisor - remainder + 1).join char}"
+
+  appendage = (char for x in [0...Array(divisor - remainder + 1)])
+  if dividend instanceof Buffer
+    Buffer.concat([ dividend, new Buffer(appendage) ]) 
+  else
+    "#{dividend}#{appendage.join ''}"
+
 class BreakRepeatingKeyXor
   # For each KEYSIZE, take the first KEYSIZE worth of bytes, and the second
   # KEYSIZE worth of bytes, and find the edit distance between them.
@@ -275,12 +288,6 @@ class BreakRepeatingKeyXor
       lenScores[ average / KEYSIZE / 2 ] = KEYSIZE / 2
     console.log lenScores
     (lenScores[i] for i in Object.keys(lenScores).sort())[0]
-
-
-  padSoDivisble = (dividend, divisor, char='0') ->
-    remainder = dividend.length % divisor
-    return dividend if remainder is 0
-    "#{dividend}#{Array(divisor - remainder + 1).join char}"
 
   # Now that you probably know the KEYSIZE: break the ciphertext into blocks
   # of KEYSIZE length.
@@ -343,6 +350,9 @@ exports.breakRepeatingKeyXor = BreakRepeatingKeyXor.run
 exports.readFile = (file, format='base64') ->
   new Buffer(fs.readFileSync(file, 'utf8').split("\n").join(''), format)
 
+exports.readFileByLine = (file, format='base64', splitOn="\n") ->
+  (new Buffer(x, format) for x in fs.readFileSync(file, 'utf8').split(splitOn))
+
 exports.decryptAes128Ecb = (ciphertext, key) ->
   ecbDecrypt('aes128', 128, ciphertext, key)
 
@@ -362,3 +372,49 @@ ecbDecrypt = (cipher, blockSize, buf, key) ->
     decrypted.push Buffer.concat([ decipher.update(data), decipher.final() ])
     i++
   Buffer.concat decrypted
+
+# Return [ {block, freq} ]
+histogramOfRepeatedBlocks = (text, blockSize) ->
+  padded = padSoDivisble(text, blockSize)
+  blocks = {}
+  #console.log "text.length = #{text.length}"
+  #console.log "padded.length = #{padded.length}"
+  for i in [0...padded.length/blockSize]
+    block = padded.slice(i*blockSize, (i+1)*blockSize).toString('hex')
+    #console.log "#{i*blockSize} -> #{(i+1)*blockSize}. = #{block}"
+    blocks[block] ?= 0
+    blocks[block]++
+
+  blocks = ({ block: block.toString('hex'), freq, text: text.toString('hex') } for block, freq of blocks)
+  return blocks
+
+scoreForAesWithEcb = (text, blockSize) ->
+  padded = padSoDivisble(text, blockSize)
+  blocks = {}
+  #console.log "text.length = #{text.length}"
+  #console.log "padded.length = #{padded.length}"
+  for i in [0...padded.length/blockSize]
+    block = padded.slice(i*blockSize, (i+1)*blockSize).toString('hex')
+    #console.log "#{i*blockSize} -> #{(i+1)*blockSize}. = #{block}"
+    blocks[block] ?= 0
+    blocks[block]++
+  score = 0
+  for block, freq of blocks when freq > 1 then score += freq
+
+  return score
+
+###
+  Accepts an array of buffers.
+  Returns an array of {score: Number, ciphertext: String} sorted in descended
+    by score. Score indicates likelihood of the text being encrypted by AES with
+    ECB.
+###
+exports.whichCiphersAreFromAesWithEcb = (ciphertexts) ->
+  results = []
+  for c,i in ciphertexts
+    for blockSize in [4...c.length/2]
+      #console.log "#{i} for size #{blockSize}"
+      results = results.concat {score: scoreForAesWithEcb(c, blockSize), ciphertext: c}
+  results.sort (a, b) -> return b.score - a.score
+  return results
+  # The (key, ciphertext) with the most repeated blocks is AES in ECB.
