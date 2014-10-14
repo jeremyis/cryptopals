@@ -233,18 +233,19 @@ hammingDistance = (hexA, hexB) ->
     i += 2
   return dist
 
-
+# TODO: test these guys
 padSoDivisble = (dividend, divisor, char=0) ->
-  remainder = dividend.length % divisor
-  return dividend if remainder is 0
+  padTo(dividend, dividend.length + (dividend.length % divisor), char)
+padTo = (text, to, char) ->
+  return text if text.length is to
 
   #console.log "appending: #{divisor}, #{remainder}, #{Array(divisor - remainder + 1).join char}"
 
-  appendage = (char for x in [0...Array(divisor - remainder + 1)])
-  if dividend instanceof Buffer
-    Buffer.concat([ dividend, new Buffer(appendage) ]) 
+  appendage = (char for x in [0...(text.length - to)])
+  if text instanceof Buffer
+    Buffer.concat([ text, new Buffer(appendage) ]) 
   else
-    "#{dividend}#{appendage.join ''}"
+    "#{text}#{appendage.join ''}"
 
 class BreakRepeatingKeyXor
   # For each KEYSIZE, take the first KEYSIZE worth of bytes, and the second
@@ -418,3 +419,6 @@ exports.whichCiphersAreFromAesWithEcb = (ciphertexts) ->
   results.sort (a, b) -> return b.score - a.score
   return results
   # The (key, ciphertext) with the most repeated blocks is AES in ECB.
+
+exports.pkcs7Pad = (message, to) ->
+  padTo(message, to, String.fromCharCode(4))
