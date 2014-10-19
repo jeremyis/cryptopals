@@ -430,3 +430,30 @@ exports.whichCiphersAreFromAesWithEcb = (ciphertexts) ->
 
 exports.pkcs7Pad = (message, to) ->
   padTo(message, to, String.fromCharCode(4))
+
+exports.decryptAes128Cbc = (ciphertext, iv, key) ->
+  cbcDecrypt('aes128', 128, ciphertext, iv, key)
+
+cbcDecrypt = (cipher, blockSize, buf, iv, key) ->
+  if buf.length * 8 % blockSize isnt 0
+    throw new Error("Buffer (#{buf.length*8}) bits) must be divisible by block size (#{blockSize} bits)")
+  if blockSize / 8 isnt key.length 
+    throw new Error "Key must be #{blockSize / 8} bytes."
+
+  i = 0
+  decrypted = []
+  blockSizeBytes = blockSize / 8
+  lastCipher = iv
+  while i*blockSizeBytes < buf.length
+    data = buf.slice(i * blockSizeBytes, (i+1) * blockSizeBytes)
+
+    fakeIv = new Buffer( (0 for x in [0...key.length]) )
+    decipher = crypto.createDecipheriv(cipher, key, fakeIv)
+    decipher.setAutoPadding(false) # D'oh this was needed
+    out = Buffer.concat([ decipher.update(data), decipher.final() ])
+    decrypted.push exports.fixedXor out, lastCipher
+    lastCipher = data
+    i++
+
+  Buffer.concat decrypted
+
