@@ -65,13 +65,21 @@ exports.hexToBase64 = (hex) ->
   Takes two equal-length hex buffers and produces their XOR.
 ###
 exports.fixedXor = (hexA, hexB) ->
-  if hexA.length isnt hexB.length
+
+  [aIsString, bIsString] = [typeof hexA is 'string', typeof hexB is 'string']
+
+  a = if aIsString then new Buffer(hexA, 'hex') else hexA
+  b = if bIsString then new Buffer(hexB, 'hex') else hexB
+
+  if a.length isnt b.length
     throw new Error "fixedXor can only operate on two equal-length strings."
 
   results = []
-  for i in [0...hexA.length]
-    results.push (parseInt(hexA[i], 16) ^ parseInt(hexB[i], 16)).toString(16)
-  return results.join('')
+  for i in [0...a.length]
+    results.push (a[i] ^ b[i])
+  results = new Buffer(results)
+
+  if aIsString or bIsString then results.toString('hex') else results
 
 
 SIG_CHARS = "ETAOIN SHRDLU"
